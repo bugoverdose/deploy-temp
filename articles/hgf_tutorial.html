@@ -80,776 +80,799 @@ Gausian Filter</h1>
 
     
     
-<p>By <a href="https://github.com/bugoverdose" class="external-link"><strong>Jinwoo
-Jeong</strong></a>, <a href=""><strong>Juha Lee</strong></a>, <a href="https://github.com/0150362" class="external-link"><strong>Yusom Jo</strong></a> |
-September 2, 2026</p>
+<p>By <a href="https://www.linkedin.com/in/jinwoo-jeong-ab284420b" class="external-link"><strong>Jinwoo
+Jeong</strong></a>, <a href="https://github.com/juhajulia" class="external-link"><strong>Juha
+Lee</strong></a>, <a href="https://github.com/0150362" class="external-link"><strong>Yusom
+Jo</strong></a>, <a href="https://ccs-lab.github.io/team/young-ahn/" class="external-link"><strong>Woo-Young
+Ahn</strong></a> | September 2, 2025</p>
 <p><br></p>
-<p><a href="https://ccs-lab.github.io/hBayesDM/reference/hgf_ibrb.html" class="external-link"><code>hgf_ibrb</code></a>
-<a href="https://ccs-lab.github.io/hBayesDM/reference/hgf_ibrb_single.html" class="external-link"><code>hgf_ibrb_single</code></a></p>
-<ul>
-<li>Hierarchical Gaussian Filtering <span class="citation">(Mathys et
-al., 2011)</span>.</li>
-</ul>
-<p>hBayesDM (<strong><em>h</em></strong>ierarchical
-<strong><em>Bayes</em></strong>ian modeling of
-<strong><em>D</em></strong>ecision-<strong><em>M</em></strong>aking
-tasks) is a user-friendly R package that offers hierarchical Bayesian
-analysis of various computational models on an array of decision-making
-tasks. Click <a href="https://cran.r-project.org/web/packages/hBayesDM/hBayesDM.pdf" class="external-link"><strong>here</strong></a>
-to download its help file (reference manual). Click <a href="https://www.mitpressjournals.org/doi/full/10.1162/CPSY_a_00002" class="external-link"><strong>here</strong></a>
-to read our paper published in Computational Psychiatry. Click <a href="https://u.osu.edu/ccsl/files/2016/12/hBayesDM_SRP_v1_revised-1qxbg1x.pdf" class="external-link"><strong>here</strong></a>
-to download a poster we presented at several conferences/meetings. You
-can find hBayesDM on <a href="https://cran.r-project.org/web/packages/hBayesDM/" class="external-link">CRAN</a> and <a href="https://github.com/CCS-Lab/hBayesDM" class="external-link">GitHub</a>.</p>
+<p><strong>Hierarchical Gaussian Filter (HGF)</strong> is a cognitive
+model designed to explain how individuals learn in uncertain and
+changing environments <span class="citation">(Mathys et al.,
+2011)</span>. Originally, <a href="https://www.tnu.ethz.ch/de/software/tapas" class="external-link">TAPAS</a> was the only
+available tool for applying HGF to behavioral data. By offering various
+combinations of perceptual and observation models, TAPAS HGF Toolbox
+enabled computationally efficient way to apply different HGF models.</p>
+<p>Over the years, many researchers have requested adding HGF to
+hBayesDM. To address such request, hBayesDM <code>1.3.0</code>
+introduces two functions: <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>.
+Although these functions are currently limited to behavioral data with
+binary inputs and binary responses, they provide a straightforward way
+to apply MCMC and hierarchical Bayesian analysis to HGF models, which
+are features not supported in TAPAS.</p>
 <div class="section level2">
-<h2 id="motivation">Motivation<a class="anchor" aria-label="anchor" href="#motivation"></a>
+<h2 id="example-task">1. Example Task<a class="anchor" aria-label="anchor" href="#example-task"></a>
 </h2>
-<p>Computational modeling provides a quantitative framework for
-investigating latent neurocognitive processes (e.g., learning rate,
-reward sensitivity) and interactions among multiple decision-making
-systems. Parameters of a computational model reflect psychologically
-meaningful individual differences: thus, getting accurate parameter
-estimates of a computational model is critical to improving the
-interpretation of its findings. Hierarchical Bayesian analysis (HBA) is
-regarded as the gold standard for parameter estimation, especially when
-the amount of information from each participant is small (see below “Why
-hierarchical Bayesian analysis?”). However, many researchers interested
-in HBA often find the approach too technical and challenging to be
+<p>Let us consider a simple probabilistic reversal learning task where
+HGF can be applied.</p>
+<p>On each trial, participants are presented with two colored
+options—blue(1) and orange(0)—and must choose one. On any given trial,
+one of the two options is the correct choice, and participants receive a
+reward if they select it. Across the experiment, the probability that
+blue is the correct option changes over time. The participant’s overall
+objective is to maximize the cumulative reward.</p>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/contingency_schedule.png" alt="Figure 1. The vertical axis shows the actual reward probability of the blue option p(reward|blue), while the horizontal axis shows the trial number. Since the orange option is simply the alternative, p(reward|orange) is always one minus the value for blue." width="70%"><p class="caption">
+Figure 1. The vertical axis shows the actual reward probability of the
+blue option p(reward|blue), while the horizontal axis shows the trial
+number. Since the orange option is simply the alternative,
+p(reward|orange) is always one minus the value for blue.
+</p>
+</div>
+<p>The figure above illustrates a contingency schedule for a restless
+two-armed bandit task. The schedule spans 400 trials, alternating
+between stable and volatile phases.</p>
+<ul>
+<li>Stable phases (100 trials each): reward probabilities remain fixed.
+For example, choosing the blue option yields a reward with a probability
+of 0.8 throughout the first stable block.</li>
+<li>Volatile phases (100 trials each): reward probabilities switch
+between 0.2 and 0.8 after a random number of trials (6, 10, 14, or 20),
+making the environment unpredictable.</li>
+</ul>
+<p>Probabilistic learning tasks like this are well suited for HGF
+analysis because the environment changes over time, requiring
+participants to continuously track shifting reward contingencies.</p>
+</div>
+<div class="section level2">
+<h2 id="understanding-hgf">2. Understanding HGF<a class="anchor" aria-label="anchor" href="#understanding-hgf"></a>
+</h2>
+<p>One way to approach probablistic learning task is to assume a “true”
+hidden quantity for each trial, such as the actual probability of
+receiving a reward from the chosen option. This hidden state changes
+over time according to the contingency schedule, but the agent cannot
+observe it directly. Instead, the agent only observes inputs (whether
+the chosen option led to a reward) and tries to update its beliefs about
+the hidden state across trials. In this sense, the task represents a
+learning problem under uncertainty: how an agent can keep track of a
+changing, probabilistic world using only noisy feedback.</p>
+<p>Note that there can be various sources of uncertainty:
+<strong>stochasticity</strong> (the reward is probabilistic at each
+trial), <strong>volatility</strong> (the reward contingency changes over
+time), and even <strong>volatility of volatility</strong> (the degree of
+environmental change itself may vary over time). Successful task
+performance therefore depends on the optimal processing of these sources
+of uncertainty in learning, and the pattern of such processing can be
+characterized by the values of the parameters in HGF.</p>
+<p>For specific details on HGF, check the original papers <span class="citation">(Mathys et al., 2011, 2014)</span>.</p>
+<div class="section level3">
+<h3 id="model-structure">2.1. Model Structure<a class="anchor" aria-label="anchor" href="#model-structure"></a>
+</h3>
+<p>As the name suggests, the Hierarchical Gaussian Filter consists of
+multiple levels of hidden states, each organized in a hierarchy and
+evolving in Gaussian random walks. Theoretically, the number of
+hierarchy levels has no upper bound, but in practice it is not set too
+high due to diminishing explanatory gains and limited interpretability
+as a cognitive model.</p>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/hgf_gaussian_random_walk.png" alt="Figure 2. Overview of the Hierarchical Gaussian Filter (Mathys et al. 2014)" width="70%"><p class="caption">
+Figure 2. Overview of the Hierarchical Gaussian Filter (Mathys et
+al. 2014)
+</p>
+</div>
+<p>For instance, let’s assume a 3-level HGF with binary inputs and
+binary responses. A HGF model with 3 levels has three hidden states for
+each level: x₁, x₂, x₃. And each state represents a different aspect of
+the environment.</p>
+<ul>
+<li><p><strong>Level 1 (x₁)</strong> is the lowest level, representing
+the immediate observation or perceptual state. For example, in a binary
+task, x₁ might be the state of a cue or outcome coded as 0 or 1. This
+level does not evolve via a random walk, instead, it is generated from
+x₂ through an observation model (e.g., Bernoulli for binary outcomes).
+When there is no sensory noise, x₁ directly corresponds to the observed
+input.</p></li>
+<li><p><strong>Level 2 (x₂)</strong> is a hidden state that represents
+the <strong>current contingency of the environment</strong> (e.g., the
+probability of a binary outcome). It can be thought of as the agent’s
+belief about the latent factor governing level-1 events. This is a
+continuous state that drifts over time via a Gaussian random walk: on
+each trial, x₂ changes slightly, with the variance of this change
+dictated by level 3 (x₃).</p></li>
+<li><p><strong>Level 3 (x₃)</strong> is a higher-level hidden state
+representing the <strong>volatility of the environment</strong>, namely
+how rapidly x₂ changes. Although x₃ is modeled as a Gaussian random
+walk, the variance of this random walk is determined by a constant
+parameter because there is no higher level to modulate it. Intuitively,
+when x₃ is high, the agent believes the environment is changing rapidly
+and therefore updates x₂ more strongly; when x₃ is low, the agent
+assumes stability and updates x₂ more conservatively.</p></li>
+</ul>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/hgf_levels.png" alt="Figure 3. Overview of the hierarchical generative model (Mathys et al. 2011)" width="70%"><p class="caption">
+Figure 3. Overview of the hierarchical generative model (Mathys et
+al. 2011)
+</p>
+</div>
+</div>
+<div class="section level3">
+<h3 id="perceptual-model">2.2. Perceptual model<a class="anchor" aria-label="anchor" href="#perceptual-model"></a>
+</h3>
+<p>In the HGF perceptual model, the parameters κ (kappa) and ω (omega)
+regulate the coupling and dynamics across hierarchical levels. They
+encode the agent’s prior assumptions about environmental uncertainty and
+determine how learning adapts to changing conditions.</p>
+<p>At each level <span class="math inline">\(l\)</span>, the state <span class="math inline">\(x_l\)</span> at trial <span class="math inline">\(k\)</span> evolves as a Gaussian random walk whose
+variance depends on κ and ω:</p>
+<p><span class="math display">\[\begin{align*}
+x_l^{(k)} &amp;\sim N\bigl(x_l^{(k-1)} \text{, } \exp(\kappa_l
+x_{l+1}^{(k)} + \omega_l )\bigr), \quad l=2,...L-1 \\
+\end{align*}\]</span></p>
+<p>At the top level <span class="math inline">\(L\)</span>, the variance
+depends only on ω:</p>
+<p><span class="math display">\[\begin{align*}
+x_L^{(k)} &amp;\sim N\bigl(x_L^{(k-1)} \text{, } \exp(\omega_L )\bigr)
+\end{align*}\]</span></p>
+<div class="section level4">
+<h4 id="κ-phasic-volatility">κ: phasic volatility<a class="anchor" aria-label="anchor" href="#%CE%BA-phasic-volatility"></a>
+</h4>
+<p>κ determines how strongly a lower-level state is influenced by the
+state above it. Formally, it scales the effect of the higher-level value
+on the variance of the lower-level random walk. In a perception model
+with binary inputs and <span class="math inline">\(L\)</span>
+hierarchical levels, κ is defined for levels 2 through <span class="math inline">\(L-1\)</span>.</p>
+<p>κ must be non-negative and it has been suggested that an upper bounds
+at or below 2 is sensible <span class="citation">(Mathys et al.,
+2014)</span>.</p>
+<ul>
+<li>When κ is too small, the lower level is almost decoupled from the
+higher one. Even if the higher-level state signals increased volatility,
+the learning rate at the lower level hardly changes. The agent ends up
+learning at a nearly fixed pace regardless of environmental
+instability.</li>
+<li>When κ is too large, even small changes in the higher-level state
+strongly alter the lower-level learning rate. For instance, if
+volatility spikes, the agent immediately increases its learning rate.
+This makes the agent very adaptive, but it can also lead to overreacting
+to random noise.</li>
+</ul>
+</div>
+<div class="section level4">
+<h4 id="ω-tonic-volatility">ω: tonic volatility<a class="anchor" aria-label="anchor" href="#%CF%89-tonic-volatility"></a>
+</h4>
+<p>ω provides the baseline drift for each level’s random walk. It is the
+constant offset in the log-variance, setting how much the agent expects
+change even without higher-level modulation. In a perception model with
+binary inputs and <span class="math inline">\(L\)</span> hierarchical
+levels, ω is defined for levels 2 through <span class="math inline">\(L\)</span>.</p>
+<p>Theoretically, ω doesn’t require upper or lower bounds. However, both
+<a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>
+requires setting the appropriate range for each level of ω parameters
+for efficient and effective sampling.</p>
+<ul>
+<li>When ω is too low, the random walk variance is small by default. The
+agent assumes stability, so updates are slow and conservative. Even with
+repeated prediction errors, beliefs change only gradually, reflecting a
+tendency to cling to prior expectations.</li>
+<li>When ω is too high, the random walk variance is bigger by default.
+The agent assumes that changes are common, so it updates beliefs
+quickly, even in stable environments. This can capture individuals who
+are highly responsive or prone to “jumping to conclusions.”</li>
+</ul>
+</div>
+</div>
+<div class="section level3">
+<h3 id="response-model">2.3. Response model<a class="anchor" aria-label="anchor" href="#response-model"></a>
+</h3>
+<p>The response model maps the agent’s internal prediction onto an
+observable decision. In both <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>,
+the unit-square sigmoid function is used to transform a predictive
+probability 𝑚∈[0,1] into a binary choice probability:</p>
+<p><span class="math display">\[
+p(y = 1) = \frac{m^{\text{ }\zeta}}{m^{\text{ }\zeta} + (1 - m)^{\zeta}}
+\]</span></p>
+<div class="section level4">
+<h4 id="ζ-inverse-decision-noise">ζ: inverse decision noise<a class="anchor" aria-label="anchor" href="#%CE%B6-inverse-decision-noise"></a>
+</h4>
+<p>The parameter ζ (zeta) controls the steepness of the unit-square
+sigmoid, regulating the stochasticity of decision-making. ζ is defined
+only for level 1 and must be non-negative.</p>
+<ul>
+<li>When ζ is low, the sigmoid curve becomes shallow. Even strong
+predictions (e.g., 𝑚 = 0.8) yield only moderate choice biases, and
+choices remain noisy and weakly belief-driven.</li>
+<li>When ζ is high, the sigmoid curve becomes steep. Even very small
+deviations from 0.5 lead to near-deterministic choices, and behavior
+closely follows the agent’s beliefs.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="tutorial-on-hgf_ibrb-and-hgf_ibrb_single">3. Tutorial on <code>hgf_ibrb</code> and
+<code>hgf_ibrb_single</code><a class="anchor" aria-label="anchor" href="#tutorial-on-hgf_ibrb-and-hgf_ibrb_single"></a>
+</h2>
+<p>This section explains how we can actually run <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>.
+The examples are based on <code>RStan</code>, but both functions are
+also implemented in <code>PyStan</code> and the same features are
 implemented.</p>
-<p>We introduce a free R package <strong>hBayesDM</strong>, which offers
-HBA of various computational models on an array of decision-making tasks
-(see below for a list of tasks and models currently available).
-<em><strong>Users can perform HBA of various computational models with a
-single line of coding</strong></em>. Example datasets are also
-available. With hBayesDM, we hope anyone with minimal knowledge of
-programming can take advantage of advanced computational modeling and
-HBA. It is our expectation that hBayesDM will contribute to the
-dissemination of these computational tools and enable researchers in
-related fields to easily characterize latent neurocognitive processes
-within their study populations.</p>
-</div>
-<div class="section level2">
-<h2 id="why-hierarchical-bayesian-analysis-hba">Why hierarchical Bayesian analysis (HBA)?<a class="anchor" aria-label="anchor" href="#why-hierarchical-bayesian-analysis-hba"></a>
-</h2>
-<p><img src="images/HBA_concept.png"></p>
-<p>Most computational models do not have closed form solutions and we
-need to estimate parameter values. Traditionally parameters are
-estimated at the individual level with maximum likelihood estimation
-(MLE): getting point estimates for each individual separately. However,
-individual MLE estimates are often noisy especially when there is
-insufficient amount of data. A group-level analysis (e.g., group-level
-MLE), which estimate a single set of parameters for the whole group of
-individuals, may generate more reliable estimates but inevitably ignores
-individual differences.</p>
-<p>HBA and other hierarchical approaches <span class="citation">(e.g.,
-Huys et al., 2011)</span> allow for individual differences while pooling
-information across individuals. Both individual and group parameter
-estimates (i.e., posterior distributions) are estimated simultaneously
-in a mutually constraining fashion. Consequently, individual parameter
-estimates tend to be more stable and reliable because commonalities
-among individuals are captured and informed by the group tendencies
-<span class="citation">(e.g., Ahn et al., 2011)</span>. HBA also finds
-full posterior distributions instead of point estimates (thus providing
-rich information about the parameters). HBA also makes it easy to do
-group comparisons in a Bayesian fashion (e.g., comparing clinical and
-non-clinical groups, see an example below).</p>
-<p>HBA is a branch of Bayesian statistics and the conceptual framework
-of Bayesian data analysis is clearly written in <a href="https://sites.google.com/site/doingbayesiandataanalysis/sample-chapter/DoingBayesianDataAnalysisChapter2.pdf" class="external-link">Chapter
-2</a> of John Kruschke’s book <span class="citation">(Kruschke,
-2014)</span>. In Bayesian statistics, we assume prior beliefs (i.e.,
-prior distributions) for model parameters and update the priors into
-posterior distributions given the data (e.g., trial-by-trial choices and
-outcomes) using <a href="https://en.wikipedia.org/wiki/Bayes%27_rule" class="external-link">Bayes’ rule</a>. Note
-that the prior distributions we use for model parameters are vague
-(e.g., flat) or weakly informative priors, so they play a minimal role
-in the posterior distribution.</p>
-<p>For Bayesian updating, we use the Stan software package (<a href="https://mc-stan.org/" class="external-link uri">https://mc-stan.org/</a>), which
-implements a very efficient Markov Chain Monte Carlo (MCMC) algorithm
-called Hamiltonian Monte Carlo (HMC). HMC is known to be effective and
-works well even for large complex models. See Stan reference manual (<a href="https://mc-stan.org/documentation/" class="external-link uri">https://mc-stan.org/documentation/</a>) and Chapter 14 of
-<span class="citation">Kruschke (2014)</span> for a comprehensive
-description of HMC and Stan. What is MCMC and why should we use it?
-Remember, we need to update our priors into posterior distributions in
-order to make inference about model parameters. Simply put, MCMC is a
-way of approximating a posterior distribution by drawing a large number
-of samples from it. MCMC algorithms are used when posterior
-distributions cannot be analytically achieved or using MCMC is more
-efficient than searching for the whole grid of parameter space (i.e.,
-grid search). To learn more about the basic foundations of MCMC, we
-recommend Chapter 7 of <span class="citation">Kruschke
-(2014)</span>.</p>
-<p>Detailed specification of Bayesian models is not available in text
-yet (stay tuned for our tutorial paper whose citation is listed below).
-At the same time, users can go over our Stan codes to check how we
-implement each computational model (e.g.,
-<code>pathTo_gng_m1 = system.file("stan/gng_m1.stan", package="hBayesDM")</code>
-). We made strong efforts to optimize Stan codes through
-reparameterization (e.g., Matt trick) and vectorization.</p>
-</div>
-<div class="section level2">
-<h2 id="prerequisites">Prerequisites<a class="anchor" aria-label="anchor" href="#prerequisites"></a>
-</h2>
-<ul>
-<li>R version 3.4.0 or later is required. R is freely available from <a href="http://www.r-project.org/" class="external-link uri">http://www.r-project.org/</a>.</li>
-<li>
-<strong>Latest Stan (RStan 2.18.1 or later)</strong>. Detailed
-instructions for installing RStan are available in this link: <a href="https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started/" class="external-link uri">https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started/</a>.</li>
-<li>RStudio (<a href="https://www.rstudio.com/products/RStudio/" class="external-link uri">https://www.rstudio.com/products/RStudio/</a>) is not
-required but strongly recommended.</li>
-</ul>
-<p><strong>Note</strong>: Additional R packages (e.g., <a href="https://cran.r-project.org/web/packages/ggplot2/" class="external-link">ggplot2</a>, <a href="https://cran.r-project.org/web/packages/loo/" class="external-link">loo</a>) will be
-installed (if not installed yet) during the installation of
-hBayesDM.</p>
-</div>
-<div class="section level2">
-<h2 id="tasks-models-implemented-in-hbayesdm">Tasks &amp; models implemented in hBayesDM<a class="anchor" aria-label="anchor" href="#tasks-models-implemented-in-hbayesdm"></a>
-</h2>
-<p>See <a href="http://ccs-lab.github.io/hBayesDM/reference/index.html" class="external-link">here</a>
-for the list of tasks and models implemented in hBayesDM.</p>
-</div>
-<div class="section level2">
-<h2 id="how-to-install-hbayesdm">How to install hBayesDM<a class="anchor" aria-label="anchor" href="#how-to-install-hbayesdm"></a>
-</h2>
-<p>There are three ways to install hBayesDM as described below. <em>Make
-sure to install <a href="https://mc-stan.org/interfaces/rstan" class="external-link">RStan</a>
-prior to install hBayesDM. And restart R/RStudio after the installation
-of hBayesDM.</em> Typically RStan can be installed just by typing
-<code>install.packages("rstan", dependencies = TRUE)</code>. <strong>For
-Windows, you need to install
-<a href="https://github.com/stan-dev/rstan/wiki/Install-Rtools-for-Windows" target="_blank" class="external-link">Rtools</a>
-first to install RStan and install the hBayesDM from CRAN</strong>. For
-detailed instructions for the installation of rstan, please go to this
-link: <a href="https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started" class="external-link uri">https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started</a>.
-If you are a Mac user, <a href="https://github.com/stan-dev/rstan/wiki/RStan-Mac-OS-X-Prerequisite-Installation-Instructions#step2_3" class="external-link">make
-sure Xcode is installed</a>.</p>
-<p>How can you tell if RStan is correctly installed? Check if you can
-fit the
-<a href="https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started#example-1-eight-schools" target="_blank" class="external-link">‘Eight
-Schools’</a> model without a problem. Check <a href="https://mc-stan.org/interfaces/rstan.html" class="external-link">here</a> or
-<a href="https://groups.google.com/forum/#!categories/stan-users/installation" target="_blank" class="external-link">here</a>
-if you experience difficulty installing RStan.</p>
 <div class="section level3">
-<h3 id="method-a-recommended-for-all-users---windowsmaclinux">Method A (recommended for all users - Windows/Mac/Linux)<a class="anchor" aria-label="anchor" href="#method-a-recommended-for-all-users---windowsmaclinux"></a>
+<h3 id="setup">3.1. Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h3>
-<p>Use the following call:</p>
+<div class="section level4">
+<h4 id="hbayesdm-setup">hBayesDM setup<a class="anchor" aria-label="anchor" href="#hbayesdm-setup"></a>
+</h4>
+<p>Check the <a href=".//getting_started.html">Getting Started</a> page
+to set up <code>hBayesDM</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="prepare-your-data">Prepare your data<a class="anchor" aria-label="anchor" href="#prepare-your-data"></a>
+</h4>
+<p>For simple tests, <code>hBayesDM</code> has example data for both <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>.</p>
+<p>If you want to apply HGF on your own data, make sure that your file
+has <code>.csv</code> or <code>.tsv</code> format and contains these
+four columns.</p>
+<ul>
+<li>
+<code>subjID</code> : unique subject identifier (integer or
+string)</li>
+<li>
+<code>trialNum</code> : trial index (1, 2, 3, …)</li>
+<li>
+<code>u</code> : input on that trial (0 or 1)</li>
+<li>
+<code>y</code> : subject’s choice on that trial (0 or 1)</li>
+</ul>
+</div>
+</div>
+<div class="section level3">
+<h3 id="fitting-with-default-settings">3.2. Fitting with default settings<a class="anchor" aria-label="anchor" href="#fitting-with-default-settings"></a>
+</h3>
+<p>Now, we will share various ways we can fit <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>
+on the example data.</p>
+<p>Below is the simplest way to run <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> on dataset
+with multiple participants. Below command initiates a MCMC procedure of
+4 MCMC chains, each consisting of 5 burn-in (warm up) iterations
+followed by 5 sampling iterations.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"hBayesDM"</span>, dependencies<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="method-b">Method B<a class="anchor" aria-label="anchor" href="#method-b"></a>
-</h3>
-<p>Install the package from GitHub:</p>
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, niter <span class="op">=</span> <span class="fl">10</span>, nwarmup <span class="op">=</span> <span class="fl">5</span>, nchain <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<p>The above command is the same as the commands below because a default
+value is set for each argument when not specified. You should be
+responsible for setting the appropriate arguments prior to applying HGF
+on your own dataset.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">## install 'devtools' if required</span></span>
-<span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">require</a></span><span class="op">(</span><span class="va"><a href="https://devtools.r-lib.org/" class="external-link">devtools</a></span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"devtools"</span><span class="op">)</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"CCS-Lab/hBayesDM"</span>, subdir<span class="op">=</span><span class="st">"R"</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="method-c">Method C<a class="anchor" aria-label="anchor" href="#method-c"></a>
-</h3>
-<ol style="list-style-type: decimal">
-<li>Download a copy from <a href="https://cran.r-project.org/src/contrib/hBayesDM_1.1.0.tar.gz" class="external-link"><strong>here</strong></a>
-to a directory (e.g., “~/Downloads”).</li>
-<li>Open R(Studio) and set working directory to the downloaded folder.
-(e.g., <code>setwd("~/Downloads")</code> )</li>
-<li>Install the package from the downloaded file.</li>
-</ol>
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span></span>
+<span>  data <span class="op">=</span> <span class="st">"example"</span>,</span>
+<span>  niter <span class="op">=</span> <span class="fl">10</span>, </span>
+<span>  nwarmup <span class="op">=</span> <span class="fl">5</span>, </span>
+<span>  nchain <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  L <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  input_first <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  mu0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  sigma0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,  </span>
+<span>  kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>,</span>
+<span>  omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">10</span>, <span class="op">-</span><span class="fl">15</span><span class="op">)</span>, </span>
+<span>  omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  zeta_lower  <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  zeta_upper  <span class="op">=</span> <span class="fl">2</span>,</span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Below are some of the simple ways to print the overall statistics of
+the fitted results.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span>pkgs<span class="op">=</span><span class="st">"hBayesDM_1.1.0.tar.gz"</span>, dependencies<span class="op">=</span><span class="cn">TRUE</span>, repos<span class="op">=</span><span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">allIndPars</span><span class="op">)</span></span></code></pre></div>
+<!-- $ -->
+<p>To apply HGF on a single participant data, <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>
+can be used using exactly the same format with the same arguments.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb_single.html">hgf_ibrb_single</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, niter <span class="op">=</span> <span class="fl">10</span>, nwarmup <span class="op">=</span> <span class="fl">5</span>, nchain <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">allIndPars</span><span class="op">)</span></span></code></pre></div>
+<!-- $ -->
 </div>
 <div class="section level3">
-<h3 id="precompiling-stan-models-during-installation">Precompiling Stan models during installation<a class="anchor" aria-label="anchor" href="#precompiling-stan-models-during-installation"></a>
+<h3 id="input_first-option">3.3. `input_first’ option<a class="anchor" aria-label="anchor" href="#input_first-option"></a>
 </h3>
-<p>If you follow the direction described below, Stan models will be
-precompiled during installation and models will run immediately when
-called. This is recommended if you are a frequent hBayesDM user!</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span>BUILD_ALL<span class="op">=</span><span class="st">'true'</span><span class="op">)</span>  <span class="co"># Build all the models on installation</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv</a></span><span class="op">(</span>MAKEFLAGS<span class="op">=</span><span class="st">'-j 4'</span><span class="op">)</span>  <span class="co"># Use 4 cores for compilation (or the number you want)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"hBayesDM"</span><span class="op">)</span>  <span class="co"># Install from CRAN</span></span>
-<span><span class="co">## or</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"CCS-Lab/hBayesDM"</span>, subdir<span class="op">=</span><span class="st">"R"</span><span class="op">)</span>  <span class="co"># Install from GitHub</span></span></code></pre></div>
-<p><strong>We highly recommend you use multiple cores for compiling,
-since it will take quite a long time to complete.</strong></p>
+<p>`input_first’ option is to help researchers apply HGF without
+changing their data format.</p>
+<ul>
+<li>input_first=TRUE: for each row, participant observed the input
+<code>u</code> before choosing <code>y</code>
+</li>
+<li>input_first=FALSE: for each row, participant observerd observed
+<code>u</code> after choosing <code>y</code> (default)</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, niter <span class="op">=</span> <span class="fl">10</span>, nwarmup <span class="op">=</span> <span class="fl">5</span>, nchain <span class="op">=</span> <span class="fl">4</span>, input_first<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="parameter-boundaries">3.4. Parameter boundaries<a class="anchor" aria-label="anchor" href="#parameter-boundaries"></a>
+</h3>
+<p>Parameter boundaries can set for each parameters. For example, the if
+you want to set parameter boundaries for a 3-level HGF model as:</p>
+<p><span class="math display">\[\begin{align*}
+0 \leq &amp;\text{ }\kappa \leq 1 \\
+-10 \leq &amp;\text{ }\omega_{2} \leq 2 \\
+-15 \leq &amp;\text{ }\omega_{3} \leq 3 \\
+0 \leq &amp;\text{ }\zeta \leq 4
+\end{align*}\]</span></p>
+<p>Then, you set the arguments below:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span></span>
+<span>  data <span class="op">=</span> <span class="st">"example"</span>,</span>
+<span>  kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
+<span>  kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>,</span>
+<span>  omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">10</span>, <span class="op">-</span><span class="fl">15</span><span class="op">)</span>,</span>
+<span>  omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  zeta_lower  <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  zeta_upper  <span class="op">=</span> <span class="fl">4</span>,</span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="fixating-parameter-values">3.5. Fixating parameter values<a class="anchor" aria-label="anchor" href="#fixating-parameter-values"></a>
+</h3>
+<p>As TAPAS provides a way to fixate a certain parameter to a certain
+value, <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a>
+and <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>
+also provide similar feature. To fixate a parameter, simply set the
+lower bound and upper bound to the same value. Below are some
+examples.</p>
+<p>Below command fixates κ value to 1, while other parameters are
+estimated with default boundaries.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>, kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Below command fixates ω₂ to -4, while ω₃ is still estimated with the
+given boundaries (-10 &lt; ω₃ &lt; -2).</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">4.0</span>, <span class="op">-</span><span class="fl">10.0</span><span class="op">)</span>, omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">4.0</span>, <span class="op">-</span><span class="fl">2.0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>In contrast, below command fixates ω₃ to -4, while ω₂ is still
+estimated with the given boundaries (-9 &lt; ω₂ &lt; -1).</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">9.0</span>, <span class="op">-</span><span class="fl">4.0</span><span class="op">)</span>, omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1.0</span>, <span class="op">-</span><span class="fl">4.0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Below command fixates ζ value to 1, while other parameters are
+estimated with default boundaries.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, zeta_lower <span class="op">=</span> <span class="fl">1.0</span>, zeta_upper <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span></code></pre></div>
+<p>Of course, you can fixate multiple parameters at the same time as
+below:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>, kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>, zeta_lower <span class="op">=</span> <span class="fl">1.0</span>, zeta_upper <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">6.0</span>, <span class="op">-</span><span class="fl">4.0</span><span class="op">)</span>, omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">6.0</span>, <span class="op">-</span><span class="fl">4.0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="l-level-of-hierarchy">3.6. <code>L</code>: level of hierarchy<a class="anchor" aria-label="anchor" href="#l-level-of-hierarchy"></a>
+</h3>
+<p><code>L</code> option can be used to specify the level of hierarchy.
+The default and the minimum value is <code>L=3</code> because it is the
+most widely used and most interpretable.</p>
+<p>Note that the number of parameters are automatically chosen based on
+the level of hierarchy. For example, below code will fail because the
+default arguments for each parameters can only be used for
+<code>L=3</code>.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, niter <span class="op">=</span> <span class="fl">10</span>, nwarmup <span class="op">=</span> <span class="fl">5</span>, nchain <span class="op">=</span> <span class="fl">4</span>, L<span class="op">=</span><span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<p>Below is an example of fitting a 4-level HGF model. <code>L=4</code>
+introduces a fourth latent state (x₄) and extends the parameterization
+with two couplings (κ₂, κ₃), volatilities (ω₂, ω₃, ω₄), and
+initial-state vectors for levels 2-4.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span></span>
+<span>  data <span class="op">=</span> <span class="st">"example"</span>,</span>
+<span>  niter <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  nwarmup <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  nchain <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  L <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0</span>, <span class="fl">0.0</span><span class="op">)</span>,</span>
+<span>  kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.0</span>, <span class="fl">3.0</span><span class="op">)</span>,</span>
+<span>  omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">9.0</span>, <span class="op">-</span><span class="fl">10.0</span>, <span class="op">-</span><span class="fl">12.0</span><span class="op">)</span>,</span>
+<span>  omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1.0</span>,  <span class="op">-</span><span class="fl">2.0</span>,  <span class="op">-</span><span class="fl">3.0</span><span class="op">)</span>,</span>
+<span>  mu0    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  sigma0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  zeta_lower  <span class="op">=</span> <span class="fl">0.03</span>,</span>
+<span>  zeta_upper  <span class="op">=</span> <span class="fl">5.0</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="how-to-use-hbayesdm">How to use hBayesDM<a class="anchor" aria-label="anchor" href="#how-to-use-hbayesdm"></a>
+<h2 id="parameter-recovery">4. Parameter Recovery<a class="anchor" aria-label="anchor" href="#parameter-recovery"></a>
 </h2>
-<p>First, open RStudio (or just R) and load the package:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/CCS-Lab/hBayesDM" class="external-link">hBayesDM</a></span><span class="op">)</span></span></code></pre></div>
-<p>Four steps of doing HBA with hBayesDM are illustrated below. As an
-example, four models of the orthogonalized Go/Nogo task (Guitart-Masip
-et al., 2012; Cavanagh et al., 2013) are fit and compared with the
-hBayesDM package.</p>
-<p><img src="images/hBayesDM_pipeLine.png"></p>
+<p>In order to ensure that the estimated parameters genuinely reflect
+the underlying generative process, parameter recovery analysis was
+conducted to validate model identifiability and estimation reliability.
+This procedure involves generating synthetic datasets from known
+parameter values and then re-estimating those parameters using the same
+model.</p>
 <div class="section level3">
-<h3 id="prepare-the-data">1) Prepare the data<a class="anchor" aria-label="anchor" href="#prepare-the-data"></a>
+<h3 id="simulation">4.1. Simulation<a class="anchor" aria-label="anchor" href="#simulation"></a>
 </h3>
-<ul>
-<li>For fitting a model with hBayesDM, all subjects’ data should be
-combined into a single text file (*.txt). Look at the sample dataset and
-a help file (e.g., <code><a href="../reference/gng_m1.html">?gng_m1</a></code>) for each task and carefully
-follow the instructions.</li>
-<li>Subjects’ data must contain variables that are consistent with the
-column names specified in the help file, though extra variables are in
-practice allowed.</li>
-<li>It is okay if the number of trials is different across subjects. But
-there should exist no N/A data. If some trials contain N/A data (e.g.,
-<code>choice=NA</code> in trial#10), remove the trials first.</li>
-<li>Sample data are available <a href="https://u.osu.edu/ccsl/files/2016/03/sampleData_hBayesDM_0.2.0-1d9qdvj.zip" class="external-link"><strong>here</strong></a>,
-although users can fit a model with sample data without separately
-downloading them with one of the function arguments. Once the hBayesDM
-package is installed, sample data can be also retrieved from the package
-folder. Note that the file name of sample (example) data for a given
-task is <strong>taskName_exampleData.txt</strong> (e.g.,
-dd_exampleData.txt, igt_exampleData.txt, gng_exampleData.txt, etc.). See
-each model’s help file (e.g., <code><a href="../reference/gng_m1.html">?gng_m1</a></code>) to check required
-data columns and their labels.</li>
-</ul>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dataPath</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata/gng_exampleData.txt"</span>, package<span class="op">=</span><span class="st">"hBayesDM"</span><span class="op">)</span></span></code></pre></div>
-<p>If you download the sample data to “~/Downloads”, you may specify the
-path to the data file like this:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">dataPath</span> <span class="op">=</span> <span class="st">"~/Downloads/gng_exampleData.txt"</span></span></code></pre></div>
+<p>In order to simulate binary inputs, the Contingency Schedule from <a href="#example-task">Section 1</a> was used to create 400 trials of
+inputs. To simulate binary responses, <code>tapas_simModel</code>
+function from TAPAS HGF Toolbox was applied to the simulated inputs,
+assuming 3-level HGF with binary responses. A total of 30 participant
+behavioral data was generated using randomly chosen parameter
+combinations:</p>
+<p><span class="math display">\[\begin{align*}
+\kappa &amp;= 1.0 \\
+-9.0 \leq &amp;\text{ }\omega_{2} \leq -1.0 \\
+-10.0 \leq &amp;\text{ }\omega_{3} \leq -2.0 \\
+0.03 \leq &amp;\text{ }\zeta \leq 4.0
+\end{align*}\]</span></p>
+<p>Note that the κ is fixed to 1, following many of the previous works
+with similar context <span class="citation">(Hein et al., 2021; Tecilla
+et al., 2023)</span>.</p>
 </div>
 <div class="section level3">
-<h3 id="fit-candidate-models">2) Fit candidate models<a class="anchor" aria-label="anchor" href="#fit-candidate-models"></a>
+<h3 id="recovery-with-tapas">4.2. Recovery with TAPAS<a class="anchor" aria-label="anchor" href="#recovery-with-tapas"></a>
 </h3>
-<p>Below the <code>gng_m1</code> model is fitted with its sample data.
-The command indicates that four MCMC chains are run and four cores are
-used for parallel computing. If you enter “example” as an argument for
-<code>data</code>, hBayesDM will use the sample data for the task. Note
-that you can save the output to a file (see the <code>saveDir</code>
-argument) or send an email when fitting is complete (see the
-<code>email</code> argument). You can also assign your own initial
-values (see the <code>inits</code> argument; e.g.,
-<code>inits=c(0.1, 0.2, 1.0)</code>):</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">output1</span> <span class="op">=</span> <span class="fu"><a href="../reference/gng_m1.html">gng_m1</a></span><span class="op">(</span>data<span class="op">=</span><span class="st">"example"</span>, niter<span class="op">=</span><span class="fl">2000</span>, nwarmup<span class="op">=</span><span class="fl">1000</span>, nchain<span class="op">=</span><span class="fl">4</span>, ncore<span class="op">=</span><span class="fl">4</span><span class="op">)</span></span></code></pre></div>
-<p>, which is the same as the command below because the default numbers
-of total (including warmup) iterations (MCMC samples), warmup
-iterations, and chains are 2,000, 1,000, and 4 for <code>gng</code>
-models.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">output1</span> <span class="op">=</span> <span class="fu"><a href="../reference/gng_m1.html">gng_m1</a></span><span class="op">(</span><span class="st">"example"</span>, ncore<span class="op">=</span><span class="fl">4</span><span class="op">)</span></span></code></pre></div>
-<p>Executing the command will generate messages like below in the R
-console. It will take approximately 2~3 minutes (with the
-<code>gng_m1</code> model &amp; “example” data) for the model fitting to
-complete (with MCMC sampling). Note that you may get warning messages
-about “numerical problems” or that there are a certain number of
-“divergent transitions after warmup”. When we check our models with
-example datasets, warning messages appear mostly at the beginning of the
-warmup period and there are very few divergent transitions after warmup.
-In such cases, you can ignore the warnings. Also see Appendix D of the
-<a href="https://github.com/stan-dev/stan/releases/download/v2.17.0/stan-reference-2.17.0.pdf" class="external-link">Stan
-Reference Manual</a>.</p>
-<pre><code>Model name  = gng_m1
-Data file   = example
-
-Details:
- # of chains                    = 4
- # of cores used                = 4
- # of MCMC samples (per chain)  = 2000
- # of burn-in samples           = 1000
- # of subjects                  = 10
- # of (max) trials per subject  = 240
-
-****************************************
-** Use VB estimates as initial values **
-****************************************
-
-
-***********************************
-**  Loading a precompiled model  **
-***********************************
-starting worker pid=75130 on localhost:11950 at 08:25:48.905
-starting worker pid=75138 on localhost:11950 at 08:25:49.101
-
-SAMPLING FOR MODEL 'gng_m1' NOW (CHAIN 1).
-
-Chain 1, Iteration:    1 / 2000 [  0%]  (Warmup)
-SAMPLING FOR MODEL 'gng_m1' NOW (CHAIN 2).
-...</code></pre>
-<p>When model fitting is complete, you see this message and data are
-stored into <code>output1</code>.</p>
-<pre><code>************************************
-**** Model fitting is complete! ****
-************************************</code></pre>
-<p><code>output1</code>, a hBayesDM object, is a list with 4 elements
-(class: “hBayesDM”):</p>
-<ol style="list-style-type: decimal">
+<p>In order to check whether the simulated data had reasonable parameter
+ranges that HGF models can recover, <code>tapas_fitModel</code> function
+from TAPAS HGF Toolbox was applied to check parameter recovery.
+<code>tapas_hgf_binary' and</code>tapas_unitsq_sgm’ models were applied
+using the following prior settings:</p>
+<p><span class="math display">\[\begin{align*}
+\mu_{0,2} &amp;= 0, \quad \mu_{0,3} = 1 \\
+\sigma^{2}_{0,2} &amp;= 1, \quad \sigma^{2}_{0,3} = 1 \\
+\omega_{2} &amp;\sim N(-5, 4^2) \\
+\omega_{3} &amp;\sim N(-6, 4^2)
+\end{align*}\]</span></p>
+<p>Figure 4 shows that both ω₂ and ζ were recovered almost perfectly
+(ω₂: r = 0.99, p &lt; 1.63e-23; ζ: r = 0.99, p &lt; 8.9e-26), indicating
+that these parameters can be reliably estimated at the individual level.
+In contrast, ω₃ exhibited almost no recovery (r = -0.09, p = 0.633),
+with all the estimated values presumably stuck in a local minima near
+-6.</p>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/tapas_recovery.png" alt="Figure 4. Parameter recovery in TAPAS. Each panel plots true parameter value - posterior means for ω₂, ω₃, and ζ." width="90%"><p class="caption">
+Figure 4. Parameter recovery in TAPAS. Each panel plots true parameter
+value - posterior means for ω₂, ω₃, and ζ.
+</p>
+</div>
+</div>
+<div class="section level3">
+<h3 id="recovery-with-hgf_ibrb_single">4.3. Recovery with <code>hgf_ibrb_single</code><a class="anchor" aria-label="anchor" href="#recovery-with-hgf_ibrb_single"></a>
+</h3>
+<p>For each subject data, <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>
+was applied in a loop with settings as below.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb_single.html">hgf_ibrb_single</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">subject_data</span>,</span>
+<span>                       niter <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span>                       nwarmup <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>                       nchain <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>                       L <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>                       kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>                       kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>                       omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">9.0</span>, <span class="op">-</span><span class="fl">10.0</span><span class="op">)</span>,</span>
+<span>                       omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1.0</span>, <span class="op">-</span><span class="fl">2.0</span><span class="op">)</span>,</span>
+<span>                       zeta_lower  <span class="op">=</span> <span class="fl">0.03</span>,</span>
+<span>                       zeta_upper  <span class="op">=</span> <span class="fl">4.0</span>,</span>
+<span>                       mu0 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>                       inits <span class="op">=</span> <span class="st">"random"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/individual_recovery.png" alt="Figure 5. Parameter recovery (hgf_ibrb_single)" width="90%"><p class="caption">
+Figure 5. Parameter recovery (hgf_ibrb_single)
+</p>
+</div>
+<p>Figure 5 shows that both ω₂ and ζ were recovered pretty well (ω₂: r =
+0.84, p &lt; 1e-8; ζ: r = 0.94, p &lt; 1e-14), whereas ω₃ showed almost
+no recovery with values more scattered compared to TAPAS (r = 0.07, p =
+0.71).</p>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/tapas_individual_recovery.png" alt="Figure 6. TAPAS vs hgf_ibrb_single" width="90%"><p class="caption">
+Figure 6. TAPAS vs hgf_ibrb_single
+</p>
+</div>
+<p>Figure 6 shows that ω₂ and ζ recovery results for
+<code>hBayesDM</code> and TAPAS are positively correlated and have very
+similar patterns. In contrast recovery results for ω₃ showed completely
+different pattern, but it is not meaningful considering that they have
+both failed to recover meaningful parameter values.</p>
+<p>Overall, these results indicate that even when each subject is fit
+independently, <code>hBayesDM</code> can be used in much the same way as
+TAPAS, while also leveraging the advantages of MCMC sampling such as
+obtaining posterior distributions of each parameter rather than just
+point estimates.</p>
+</div>
+<div class="section level3">
+<h3 id="recovery-with-hgf_ibrb">4.4. Recovery with <code>hgf_ibrb</code><a class="anchor" aria-label="anchor" href="#recovery-with-hgf_ibrb"></a>
+</h3>
+<p>For hierarchical Bayesian analysis, <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a> was applied
+to the 30 participants data as below:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span></span>
+<span>  data <span class="op">=</span> <span class="va">data</span>,</span>
+<span>  niter <span class="op">=</span> <span class="fl">2000</span>,</span>
+<span>  nwarmup <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  nchain <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  L <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  kappa_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  kappa_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  omega_lower <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">9.0</span>, <span class="op">-</span><span class="fl">10.0</span><span class="op">)</span>, </span>
+<span>  omega_upper <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1.0</span>, <span class="op">-</span><span class="fl">2.0</span><span class="op">)</span>,</span>
+<span>  zeta_lower  <span class="op">=</span> <span class="fl">0.03</span>,</span>
+<span>  zeta_upper  <span class="op">=</span> <span class="fl">4.0</span>,</span>
+<span>  mu0   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>  inits <span class="op">=</span> <span class="st">"random"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/hierarchical_recovery.png" alt="Figure 7. Parameter recovery (hgf_ibrb)" width="90%"><p class="caption">
+Figure 7. Parameter recovery (hgf_ibrb)
+</p>
+</div>
+<p>Figure 7 shows that both ω₂ and ζ showed near-perfect recovery (ω₂: r
+= 0.99, p &lt; 1e-25; ζ: r = 0.95, p &lt; 1e-16), with better
+correlation compared to <code>hgf_ibrb_single</code>. Unfortunately, ω₃
+still showed poor recovery (r = 0.05, p = 0.79), but was slightly better
+than TAPAS considering that the results from TAPAS had a negative
+correlation.</p>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/tapas_hierarchical_recovery.png" alt="Figure 8. TAPAS vs hgf_ibrb" width="90%"><p class="caption">
+Figure 8. TAPAS vs hgf_ibrb
+</p>
+</div>
+<p>Figure 8 shows that ω₂ and ζ recovery results for
+<code>hBayesDM</code> and TAPAS matched very closely, with positively
+correlations almost near 1. Once again, recovery results for ω₃ showed
+completely different pattern with negative correlation, but it is not
+meaningful considering that TAPAS have failed to recover meaningful
+parameter values.</p>
+<p>Overall, we can say that <code>hBayesDM</code> can be used for
+fitting HGF models in much the same way as TAPAS, while additionally
+enabling hierarchical Bayesian analysis. Moreover, these results suggest
+that <a href="../reference/hgf_ibrb.html"><code>hgf_ibrb</code></a>
+should be preferred over <a href="../reference/hgf_ibrb_single.html"><code>hgf_ibrb_single</code></a>
+as hierarchical modeling framework further improves parameter recovery
+compared to individual-level fits, presumably due to the benefits of
+shrinkage.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="appendix">5. Appendix<a class="anchor" aria-label="anchor" href="#appendix"></a>
+</h2>
+<div class="section level3">
+<h3 id="specifying-intial-values">5.1. Specifying intial values<a class="anchor" aria-label="anchor" href="#specifying-intial-values"></a>
+</h3>
+<p><code>hBayesDM</code> provides various options for the initial values
+(<code>inits</code>) of the parameters. The default setting is
+<code>vb</code>, therefore <code>hBayesDM</code> will try to fit the
+model with <code>vb</code> and then use the VB estimation as initial
+values for MCMC sampling. If this VB estimation fails,
+<code>hBayesDM</code> defaults to using random initial values
+instead.</p>
+<p>Since the <code>vb</code> option has the issue of failing
+stochastically, considering using the <code>random</code> option as
+below or specifying the initial parameter values.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hgf_ibrb.html">hgf_ibrb</a></span><span class="op">(</span>data <span class="op">=</span> <span class="st">"example"</span>, inits <span class="op">=</span> <span class="st">"random"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="poor-recovery-of-ω₃">5.2. Poor recovery of ω₃<a class="anchor" aria-label="anchor" href="#poor-recovery-of-%CF%89%E2%82%83"></a>
+</h3>
+<p>During the parameter recovery at <a href="#parameter-recovery">Section 4</a>, both TAPAS and
+<code>hBayesDM</code> have failed to recover ω₃. Many previous research
+have also reported unreliable parameter estimation for ω₃ <span class="citation">(Hein et al., 2021; Reed et al., 2020; Tecilla et al.,
+2023)</span>. To our knowledge, there has been no systematic analysis on
+the causes nor the potential solutions for this problem.</p>
+<p>To explore this problem, we conducted a few simple experiments,
+varying the patterns of inputs and the combinations of fixed and free
+parameters. In this page, we’ll briefly report some of the results—an
+input where the simulated behavior differ depending on the value of ω₃,
+and the recovery results of (1) when ω₃ is set as the only free
+parameter and (2) when ω₃ is estimated with other parameters ω₂, ζ.</p>
+<p>The model performs parameter estimation based on the participant’s
+behavioral data, a process known as model inversion. It indicates that,
+for the model to infer the latent perceptual states from the data, the
+data must contain sufficient information for successful inference. In
+other words, the effect of the true parameter should be clearly
+reflected in the data.</p>
+<p>And this would be dependent on several factors : the task design must
+elicit the engagement of the parameter of interest (e.g., the task
+design must be sufficiently volatile to capture individual differences
+in volatility estimation). The parameterization matters too : the model
+itself should be formalized in a way that changes in parameter values
+produce noticeable changes in the actual behavior patterns.</p>
+<p>To consider these factors, we conducted parameter recovery analyses
+multiple times using various input designs and different ranges of ω₃
+(30 subjects, -6.4 &lt; ω₃ &lt; -0.8, steps of 0.2). To check the pure
+effect of ω₃ on responses, we simulated data with TAPAS (<a href="http://www.translationalneuromodeling.org/tapas" class="external-link uri">http://www.translationalneuromodeling.org/tapas</a>, version
+3.1.0) in a controlled manner—fix the other parameter values and set
+seed number to control stochasticity of observation model. Also, to
+ensure the changes in ω₃ values were appropriately reflected under input
+setting, we set the agent with the lowest ω₃ value as baseline agent,
+and calculated the total different input numbers with it. If the number
+varies according to the changes in ω₃ values, then it could be said that
+under the current input setting, the influence of ω₃ could be reflected
+on the actual behavioral pattern. By finding appropriate input with this
+procedure, we fitted the simulated data with hgf_ibrb, hgf_ibrb_single,
+and TAPAS and checked whether the true parameters could be recovered
+well.</p>
+<div class="section level4">
+<h4 id="simulated-input">Simulated input<a class="anchor" aria-label="anchor" href="#simulated-input"></a>
+</h4>
+<p>When simulating with input design introduced on “3. How to implement
+hgf_ibrb &amp; hgf_ibrb_single - Example data” part, there were almost
+<strong>no variability of response</strong> across simulated agents with
+different ω₃ values. So we made another input schedule below and checked
+the response variability depending on ω₃ value.</p>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/contingency_schedule_om3.png" alt="Figure 9. The vertical axis shows the actual reward probability of the blue option p(reward|blue), while the horizontal axis shows the trial number." width="70%"><p class="caption">
+Figure 9. The vertical axis shows the actual reward probability of the
+blue option p(reward|blue), while the horizontal axis shows the trial
+number.
+</p>
+</div>
+<p>The overall task design is similar to the the Contingency Schedule
+from <a href="#example-task">Section 1</a>. The only different point is
+that the trial numbers of each stable and volatile phase becomes ½ (both
+stable and volatile phase consists of 50 trials, leading to 2 times more
+frequent shift between stable and volatile phase than previous design
+introduced in part 3.</p>
+<table class="table">
+<colgroup>
+<col width="34%">
+<col width="16%">
+<col width="20%">
+<col width="27%">
+</colgroup>
+<thead><tr class="header">
+<th>num_different_responses</th>
+<th>subject_ID</th>
+<th>omega_3_range</th>
+<th>theta_range</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>0</td>
+<td>1–8</td>
+<td>-6.4 – -5.0</td>
+<td>0.001662 – 0.006738</td>
+</tr>
+<tr class="even">
+<td>1</td>
+<td>9–22</td>
+<td>-4.8 – -2.2</td>
+<td>0.00823 – 0.110803</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>23</td>
+<td>-2.0</td>
+<td>0.135335</td>
+</tr>
+<tr class="even">
+<td>3</td>
+<td>24</td>
+<td>-1.8</td>
+<td>0.165299</td>
+</tr>
+<tr class="odd">
+<td>4</td>
+<td>25</td>
+<td>-1.6</td>
+<td>0.201897</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td>26</td>
+<td>-1.4</td>
+<td>0.24659</td>
+</tr>
+<tr class="odd">
+<td>8</td>
+<td>27</td>
+<td>-1.2</td>
+<td>0.301194</td>
+</tr>
+<tr class="even">
+<td>9</td>
+<td>28</td>
+<td>-1.0</td>
+<td>0.367879</td>
+</tr>
+<tr class="odd">
+<td>18</td>
+<td>29–30</td>
+<td>-0.8 – -0.6</td>
+<td>0.449329 – 0.548812</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level4">
+<h4 id="simulated-input-1">Simulated input<a class="anchor" aria-label="anchor" href="#simulated-input-1"></a>
+</h4>
+<div class="figure" style="text-align: center">
+<img src="images/hgf_tutorial/om3_individual_recovery.png" alt="Figure 10. Parameter recovery" width="40%"><img src="images/hgf_tutorial/om3_hierarchical_recovery.png" alt="Figure 10. Parameter recovery" width="40%"><p class="caption">
+Figure 10. Parameter recovery
+</p>
+</div>
+</div>
+<div class="section level4">
+<h4 id="recommendation-for-implementing-ω₃-estimation">Recommendation for implementing ω₃ estimation<a class="anchor" aria-label="anchor" href="#recommendation-for-implementing-%CF%89%E2%82%83-estimation"></a>
+</h4>
+<p>Check if the recovery of ω₃ is good enough in current settings
+<strong>before conducting experiment</strong>. Considering the factors
+below would be helpful.</p>
+<ul>
 <li>
-<code>model</code>: Name of the fitted model (i.e.,
-<code>output1$model</code> is ‘gng_m1’).</li>
-<li>
-<code>allIndPars</code>: Summary of individual subjects’ parameters
-(default: <em>mean</em>). Users can also choose to use <em>median</em>
-or <em>mode</em> (e.g.,
-<code>output1 = gng_m1("example", indPars="mode")</code> ).</li>
-<li>
-<code>parVals</code>: Posterior samples of all parameters. Extracted
-by <code>rstan::extract(rstan_object, permuted=T)</code>. <strong>Note
-that hyper (group) mean parameters are indicated by
-<code>mu_PARAMETER</code> (e.g., <code>mu_xi</code>, <code>mu_ep</code>,
-<code>mu_rho</code>).</strong>
+<p>Task design</p>
+<ul>
+<li>Check whether the task design is appropriate for estimating
+volatility processing. Simulate data with the current input design and
+check whether the simulated responses vary depending on changes in the
+ω₃ value. To test the pure effect of ω₃ on responses, fix the values of
+the other parameters and set a random seed to control the stochasticity
+of the observation model. Defining an index for response variability
+would be helpful to check the effect of ω₃ on responses (e.g., set the
+agent with a small ω₃ as the baseline. Simulate data with various ω₃
+values, and calculate the total different response number when comparing
+with the baseline agent).</li>
+</ul>
 </li>
 <li>
-<code>fit</code>: RStan object (i.e.,
-<code>fit = stan(file='gng_m1.stan', ...)</code> ).</li>
-<li>
-<code>rawdata</code>: Raw trial-by-trial data used for modeling. Raw
-data are provided in the output to allow users to easily access data and
-compare trial-by-trial model-based regressors (e.g., prediction errors)
-with choice data.</li>
-<li>
-<code>modelRegressor</code> (optional): Trial-by-trial model-based
-regressors such as prediction errors, the values of the chosen option,
-etc. For each model, we pre-select appropriate model-based
-regressors.</li>
-</ol>
-<pre><code>&gt; output1$allIndPars
-           xi        ep      rho subjID
-1  0.03688558 0.1397615 5.902901      1
-2  0.02934812 0.1653435 6.066120      2
-3  0.04467025 0.1268796 5.898099      3
-4  0.02103926 0.1499842 6.185020      4
-5  0.02620808 0.1498962 6.081908      5
-...</code></pre>
-<pre><code>&gt; output1$fit
-Inference for Stan model: gng_m1.
-4 chains, each with iter=2000; warmup=1000; thin=1;
-post-warmup draws per chain=1000, total post-warmup draws=4000.
-
-               mean se_mean   sd    2.5%     25%     50%     75%   97.5% n_eff Rhat
-mu_xi          0.03    0.00 0.02    0.00    0.02    0.03    0.05    0.08  2316 1.00
-mu_ep          0.15    0.00 0.02    0.11    0.13    0.15    0.16    0.19  4402 1.00
-mu_rho         5.97    0.01 0.72    4.76    5.45    5.89    6.40    7.61  3821 1.00
-sigma[1]       0.54    0.06 1.02    0.02    0.18    0.35    0.61    1.99   318 1.01
-sigma[2]       0.12    0.00 0.08    0.01    0.05    0.10    0.16    0.31  2620 1.00
-sigma[3]       0.12    0.00 0.09    0.01    0.05    0.10    0.16    0.33  2402 1.00
-...</code></pre>
-<p><span class="math inline">\(\hat{R}\)</span> (<code>Rhat</code>) is
-an index of the convergence of the chains. <span class="math inline">\(\hat{R}\)</span> values close to 1.00 would
-indicate that MCMC chains are converged to stationary target
-distributions. When we check MCMC performance of our models on sample
-data, <span class="math inline">\(\hat{R}\)</span> values are 1.00 for
-most parameters or at most 1.04.</p>
-</div>
-<div class="section level3">
-<h3 id="plot-model-parameters">3) Plot model parameters<a class="anchor" aria-label="anchor" href="#plot-model-parameters"></a>
-</h3>
-<p>Make sure to visually diagnose MCMC performance (i.e., visually check
-whether MCMC samples are well mixed and converged to stationary
-distributions). For the diagnosis or visualization of hyper (group)
-parameters, you can use <code>plot.hBayesDM</code> or just
-<code>plot</code>, which searches for an extension function that
-contains the class name. The class of any hBayesDM output is
-<code>hBayesDM</code>:</p>
-<p>Let’s first visually diagnose MCMC performance of hyper parameters
-with trace plots:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">output1</span>, type<span class="op">=</span><span class="st">"trace"</span>, fontSize<span class="op">=</span><span class="fl">11</span><span class="op">)</span>   <span class="co"># traceplot of hyper parameters. Set font size 11.</span></span></code></pre></div>
-<p><img src="hgf_tutorial_files/figure-html/unnamed-chunk-11-1.png"><!-- --></p>
-<p>The trace plots indicate that MCMC samples are indeed well mixed and
-converged, which is consistent with their <span class="math inline">\(\hat{R}\)</span> values (see <a href="http://stats.stackexchange.com/questions/20437/why-should-we-care-about-rapid-mixing-in-mcmc-chains" class="external-link"><strong>here</strong></a>
-for some discussion on why we care about mixing). Note that the plots
-above exclude burn-in samples. If you want, you can include burn-in
-(warmup) MCMC samples.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">output1</span>, type<span class="op">=</span><span class="st">"trace"</span>, inc_warmup<span class="op">=</span><span class="cn">T</span><span class="op">)</span>   <span class="co"># traceplot of hyper parameters w/ warmup samples</span></span></code></pre></div>
-<p><img src="hgf_tutorial_files/figure-html/unnamed-chunk-12-1.png"><!-- --></p>
-<p>You can also plot the posterior distributions of the hyper (group)
-parameters with <code>plot</code>:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">output1</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Warning: The dot-dot notation (`..density..`) was deprecated in ggplot2 3.4.0.</span></span>
-<span><span class="co">## <span style="color: #00BBBB;">ℹ</span> Please use `after_stat(density)` instead.</span></span>
-<span><span class="co">## <span style="color: #00BBBB;">ℹ</span> The deprecated feature was likely used in the <span style="color: #0000BB;">hBayesDM</span> package.</span></span>
-<span><span class="co">##   Please report the issue at <span style="color: #0000BB; font-style: italic;">&lt;https://github.com/CCS-Lab/hBayesDM/issues&gt;</span>.</span></span>
-<span><span class="co">## <span style="color: #555555;">This warning is displayed once every 8 hours.</span></span></span>
-<span><span class="co">## <span style="color: #555555;">Call `lifecycle::last_lifecycle_warnings()` to see where this warning was</span></span></span>
-<span><span class="co">## <span style="color: #555555;">generated.</span></span></span></code></pre>
-<p><img src="hgf_tutorial_files/figure-html/unnamed-chunk-13-1.png"><!-- --><!--
-$\epsilon_i \sim \text{Normal}(0.05, 0.01)$
-$\rho_{Rew_i} \sim \text{Normal}(0.05, 0.01)$
---></p>
-<p>To visualize individual parameters, you can use our newly updated
-function called <code>plotInd</code> (based on Stan’s native function
-<code>stan_plot</code>). For example, to plot each individual’s <span class="math inline">\(\epsilon\)</span> (learning rate) parameter (e.g.,
-individual posterior distributions):</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/plotInd.html">plotInd</a></span><span class="op">(</span><span class="va">output1</span>, <span class="st">"ep"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="hgf_tutorial_files/figure-html/unnamed-chunk-14-1.png"><!-- --></p>
-<!--
-Their posterior means are also stored in `OUTPUT_object$allIndPars`:
-
-``` r
-output1$allIndPars
-```
-
-```
-##    subjID         xi        ep      rho
-## 1       1 0.03936406 0.1390464 5.984567
-## 2       2 0.03619497 0.1610141 6.165139
-## 3       3 0.04313709 0.1280674 5.941669
-## 4       4 0.03132933 0.1495030 6.237969
-## 5       5 0.03477564 0.1495460 6.181487
-## 6       6 0.04173183 0.1539655 6.306257
-## 7       7 0.04324623 0.1483298 5.799157
-## 8       8 0.03465968 0.1603248 6.530577
-## 9       9 0.04022475 0.1454805 6.075577
-## 10     10 0.04777279 0.1309865 5.541290
-```
--->
-</div>
-<div class="section level3">
-<h3 id="compare-models-and-groups">4) Compare models (and groups)<a class="anchor" aria-label="anchor" href="#compare-models-and-groups"></a>
-</h3>
-<p>To compare models, you first fit all models in the same manner as the
-example above (e.g.,
-<code>output4 = gng_m4("example", niter=2000, nwarmup=1000, nchain=4, ncore=4)</code>
-). Next, we use the command <code>printFit</code>, which is a convenient
-way to summarize Leave-One-Out Information Criterion (LOOIC) or Widely
-Applicable Information Criterion (WAIC) of all models we consider (see
-<span class="citation">Vehtari et al. (2015)</span> for the details of
-LOOIC and WAIC). By default, <code>printFit</code> function uses the
-LOOIC which is preferable to the WAIC when there are influential
-observations <span class="citation">(Vehtari et al., 2015)</span>.</p>
-<p>Assuming four models’ outputs are <code>output1</code> (gng_m1),
-<code>output2</code> (gng_m2), <code>output3</code> (gng_m3), and
-<code>output4</code> (gng_m4), their model fits can be simultaneously
-summarized by:</p>
-<pre><code>&gt; printFit(output1, output2, output3, output4)
-   Model    LOOIC
-1 gng_m1 1588.843
-2 gng_m2 1571.129
-3 gng_m3 1573.872
-4 gng_m4 1543.335</code></pre>
-<p>Note that the lower LOOIC is, the better its model-fit is. Thus,
-model#4 has the best LOOIC compared to other models. Users can print
-WAIC or both by calling
-<code>printFit(output1, output2, output3, output4, ic="waic")</code> or
-<code>printFit(output1, output2, output3, output4, ic="both")</code>.
-Use the <code>extract_ic</code> function (e.g.,
-<code>extract_ic(output3)</code> ) if you want more detailed information
-including standard errors and expected log pointwise predictive density
-(elpd). Note that the <code>extract_ic</code> function can be used only
-for a single model output.</p>
-<p>We also want to remind you that there are multiple ways to compare
-computational models (e.g., simulation method (absolute model
-performance), parameter recovery, generalization criterion) and the
-goodness of fit (e.g., LOOIC or WAIC) is just one of them. Check if
-predictions from your model (e.g., “posterior predictive check”) can
-mimic the data (same data or new data) with reasonable accuracy. See
-<span class="citation">Kruschke (2014)</span> (for posterior predictive
-check), Guitart-Masip et al. (2012) (for goodness of fit and simulation
-performance on the orthogonalized Go/Nogo task), and <span class="citation">Busemeyer &amp; Wang (2000)</span> (for generalization
-criterion) as well as Ahn et al. (2008; 2014) and <span class="citation">Steingroever et al. (2014)</span> (for the combination
-of multiple model comparison methods).</p>
-<p>To compare two groups in a Bayesian fashion <span class="citation">(e.g., Ahn et al., 2014)</span>, first you need to fit
-each group with the same model and ideally the same number of MCMC
-samples. For example,</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">data_group1</span> <span class="op">=</span> <span class="st">"~/Project_folder/gng_data_group1.txt"</span>  <span class="co"># data file for group1</span></span>
-<span><span class="va">data_group2</span> <span class="op">=</span> <span class="st">"~/Project_folder/gng_data_group2.txt"</span>  <span class="co"># data file for group2</span></span>
-<span></span>
-<span><span class="va">output_group1</span> <span class="op">=</span> <span class="fu"><a href="../reference/gng_m4.html">gng_m4</a></span><span class="op">(</span><span class="va">data_group1</span><span class="op">)</span>  <span class="co"># fit group1 data with the gng_m4 model</span></span>
-<span><span class="va">output_group2</span> <span class="op">=</span> <span class="fu"><a href="../reference/gng_m4.html">gng_m4</a></span><span class="op">(</span><span class="va">data_group2</span><span class="op">)</span>  <span class="co"># fit group2 data with the gng_m4 model</span></span>
-<span></span>
-<span><span class="co">## After model fitting is complete for both groups,</span></span>
-<span><span class="co">## evaluate the group difference (e.g., on the 'pi' parameter) by examining the posterior distribution of group mean differences.</span></span>
-<span></span>
-<span><span class="va">diffDist</span> <span class="op">=</span> <span class="va">output_group1</span><span class="op">$</span><span class="va">parVals</span><span class="op">$</span><span class="va">mu_pi</span> <span class="op">-</span> <span class="va">output_group2</span><span class="op">$</span><span class="va">parVals</span><span class="op">$</span><span class="va">mu_pi</span>  <span class="co"># group1 - group2</span></span>
-<span><span class="fu"><a href="../reference/HDIofMCMC.html">HDIofMCMC</a></span><span class="op">(</span> <span class="va">diffDist</span> <span class="op">)</span>  <span class="co"># Compute the 95% Highest Density Interval (HDI).</span></span>
-<span><span class="fu"><a href="../reference/plotHDI.html">plotHDI</a></span><span class="op">(</span> <span class="va">diffDist</span> <span class="op">)</span>    <span class="co"># plot the group mean differences</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="extracting-trial-by-trial-regressors-for-model-based-fmrieeg-analysis">5) Extracting trial-by-trial regressors for model-based fMRI/EEG
-analysis<a class="anchor" aria-label="anchor" href="#extracting-trial-by-trial-regressors-for-model-based-fmrieeg-analysis"></a>
-</h3>
-<p>In model-based neuroimaging <span class="citation">(e.g., O’Doherty
-et al., 2007)</span>, model-based time series of a latent cognitive
-process are generated by computational models, and then time series data
-are convolved with a hemodynamic response function and regressed again
-fMRI or EEG data. This model-based neuroimaging approach has been
-particularly popular in cognitive neuroscience.</p>
-<p>The biggest challenge for performing model-based fMRI/EEG is to learn
-how to extract trial-by-trial model-based regressors. The hBayesDM
-package allows users to easily extract model-based regressors that can
-be used for model-based fMRI or EEG analysis. The hBayesDM package
-currently provides the following model-based regressors. With the
-trial-by-trial regressors, users can easily use their favorite
-neuroimaging package (e.g., in Statistical Parametric Mapping (SPM; <a href="http://www.fil.ion.ucl.ac.uk/spm/" class="external-link uri">http://www.fil.ion.ucl.ac.uk/spm/</a>) to perform
-model-based fMRI analysis. See our <a href="https://www.mitpressjournals.org/doi/abs/10.1162/CPSY_a_00002" class="external-link">paper</a>
-(<strong>Extracting Trial-by-Trial Regressors for Model-Based fMRI/EEG
-Analysis</strong>) for more details.</p>
-<p>As an example, if you would like to extract trial-by-trial stimulus
-values (i.e., expected value of stimulus on each trial), first fit a
-model like the following (set the <code>modelRegressor</code> input
-variable to <code>TRUE</code>. Its default value is
-<code>FALSE</code>):</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">## fit example data with the gng_m3 model</span></span>
-<span><span class="va">output3</span> <span class="op">=</span> <span class="fu"><a href="../reference/gng_m3.html">gng_m3</a></span><span class="op">(</span>data<span class="op">=</span><span class="st">"example"</span>, niter<span class="op">=</span><span class="fl">2000</span>, nwarmup<span class="op">=</span><span class="fl">1000</span>, modelRegressor<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p>Once the sampling is completed, all model-based regressors are
-contained in the <code>modelRegressor</code> list.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">## store all subjects' stimulus value (SV) in ‘sv_all’</span></span>
-<span><span class="va">sv_all</span> <span class="op">=</span> <span class="va">output3</span><span class="op">$</span><span class="va">modelRegressor</span><span class="op">$</span><span class="va">SV</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">output3</span><span class="op">$</span><span class="va">modelRegressor</span><span class="op">$</span><span class="va">SV</span><span class="op">)</span>  <span class="co"># number of rows=# of subjects (=10), number of columns=# of trials (=240)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1]  10 240</span></span></code></pre>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">## visualize SV (Subject #1)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">sv_all</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span>, type<span class="op">=</span><span class="st">"l"</span>, xlab<span class="op">=</span><span class="st">"Trial"</span>, ylab<span class="op">=</span><span class="st">"Stimulus Value (subject #1)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="hgf_tutorial_files/figure-html/unnamed-chunk-20-1.png"><!-- --></p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">## visualize SV (Subject #5)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">sv_all</span><span class="op">[</span><span class="fl">5</span>, <span class="op">]</span>, type<span class="op">=</span><span class="st">"l"</span>, xlab<span class="op">=</span><span class="st">"Trial"</span>, ylab<span class="op">=</span><span class="st">"Stimulus Value (subject #5)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="hgf_tutorial_files/figure-html/unnamed-chunk-20-2.png"><!-- --></p>
-<p>Similarly, users can extract and visualize other model-based
-regressors. <strong>W(Go)</strong>, <strong>W(NoGo)</strong>,
-<strong>Q(Go)</strong>, <strong>Q(NoGo)</strong> are stored in
-<code>Wgo</code>, <code>Wnogo</code>, <code>Qgo</code>, and
-<code>Qnogo</code>, respectively.</p>
-</div>
-<div class="section level3">
-<h3 id="variational-inference-for-approximate-posterior-sampling">6) Variational inference for approximate posterior sampling<a class="anchor" aria-label="anchor" href="#variational-inference-for-approximate-posterior-sampling"></a>
-</h3>
-<p>To use Stan’s variational algorithm for approximate posterior
-sampling in hBayesDM, users just need to set <code>vb=TRUE</code>
-(default = <code>FALSE</code>). It takes very little time (especially
-with precompiled models) to do variational inference - try it yourself
-for any model!! But variational inference should be used only to get a
-rough estimate. It is recommended that users use MCMC for final
-inferences.</p>
-<p>For example, to run <code>gng_m3</code> using variational
-inference:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">## fit example data with the gng_m3 model</span></span>
-<span><span class="va">output3</span> <span class="op">=</span> <span class="fu"><a href="../reference/gng_m3.html">gng_m3</a></span><span class="op">(</span>data<span class="op">=</span><span class="st">"example"</span>, vb <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<p>Note that input arguments for MCMC sampling (e.g.,
-<code>nchain</code>, <code>niter</code>, <code>nthin</code>,
-<code>nwarmup</code>) are not specified here. <code><a href="https://mc-stan.org/rstan/reference/stanmodel-method-vb.html" class="external-link">?rstan::vb</a></code>
-for more details.</p>
-</div>
-<div class="section level3">
-<h3 id="posterior-predictive-checks">7) Posterior predictive checks<a class="anchor" aria-label="anchor" href="#posterior-predictive-checks"></a>
-</h3>
-<p>Simply put, <em>posterior predictive checks</em> refer to when a
-fitted model is used to generate simulated data and check if simulated
-data are similar to the actual data. Posterior predictive checks are
-useful in assessing if a model generates valid predictions.</p>
-<p>From v0.5.0, users can run posterior predictive checks on all models
-except drift-diffusion models in hBayesDM. Simulated data from posterior
-predictive checks are contained in
-<code>hBayesDM_OUTPUT$parVals$y_pred</code>. In a future release, we
-will include a function/command that can conveniently summarize and plot
-posterior predictive checks. In the mean time, users can program their
-own codes like the following:</p>
-<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="do">## fit example data with the gng_m3 model and run posterior predictive checks</span></span>
-<span id="cb27-2"><a href="#cb27-2" tabindex="-1"></a>x <span class="ot">=</span> <span class="fu">gng_m3</span>(<span class="at">data=</span><span class="st">"example"</span>, <span class="at">niter=</span><span class="dv">2000</span>, <span class="at">nwarmup=</span><span class="dv">1000</span>, <span class="at">nchain=</span><span class="dv">4</span>, <span class="at">ncore=</span><span class="dv">4</span>, <span class="at">inc_postpred =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb27-3"><a href="#cb27-3" tabindex="-1"></a></span>
-<span id="cb27-4"><a href="#cb27-4" tabindex="-1"></a><span class="do">## dimension of x$parVals$y_pred</span></span>
-<span id="cb27-5"><a href="#cb27-5" tabindex="-1"></a><span class="fu">dim</span>(x<span class="sc">$</span>parVals<span class="sc">$</span>y_pred)   <span class="co"># y_pred --&gt; 4000 (MCMC samples) x 10 (subjects) x 240 (trials)</span></span>
-<span id="cb27-6"><a href="#cb27-6" tabindex="-1"></a>[<span class="dv">1</span>] <span class="dv">4000</span>  <span class="dv">10</span>  <span class="dv">240</span></span>
-<span id="cb27-7"><a href="#cb27-7" tabindex="-1"></a></span>
-<span id="cb27-8"><a href="#cb27-8" tabindex="-1"></a>y_pred_mean <span class="ot">=</span> <span class="fu">apply</span>(x<span class="sc">$</span>parVals<span class="sc">$</span>y_pred, <span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>), mean)  <span class="co"># average of 4000 MCMC samples</span></span>
-<span id="cb27-9"><a href="#cb27-9" tabindex="-1"></a></span>
-<span id="cb27-10"><a href="#cb27-10" tabindex="-1"></a><span class="fu">dim</span>(y_pred_mean)  <span class="co"># y_pred_mean --&gt; 10 (subjects) x 240 (trials)</span></span>
-<span id="cb27-11"><a href="#cb27-11" tabindex="-1"></a>[<span class="dv">1</span>]  <span class="dv">10</span> <span class="dv">240</span></span>
-<span id="cb27-12"><a href="#cb27-12" tabindex="-1"></a></span>
-<span id="cb27-13"><a href="#cb27-13" tabindex="-1"></a>numSubjs <span class="ot">=</span> <span class="fu">dim</span>(x<span class="sc">$</span>allIndPars)[<span class="dv">1</span>]  <span class="co"># number of subjects</span></span>
-<span id="cb27-14"><a href="#cb27-14" tabindex="-1"></a></span>
-<span id="cb27-15"><a href="#cb27-15" tabindex="-1"></a>subjList <span class="ot">=</span> <span class="fu">unique</span>(x<span class="sc">$</span>rawdata<span class="sc">$</span>subjID)  <span class="co"># list of subject IDs</span></span>
-<span id="cb27-16"><a href="#cb27-16" tabindex="-1"></a>maxT <span class="ot">=</span> <span class="fu">max</span>(<span class="fu">table</span>(x<span class="sc">$</span>rawdata<span class="sc">$</span>subjID))  <span class="co"># maximum number of trials</span></span>
-<span id="cb27-17"><a href="#cb27-17" tabindex="-1"></a>true_y <span class="ot">=</span> <span class="fu">array</span>(<span class="cn">NA</span>, <span class="fu">c</span>(numSubjs, maxT)) <span class="co"># true data (`true_y`)</span></span>
-<span id="cb27-18"><a href="#cb27-18" tabindex="-1"></a></span>
-<span id="cb27-19"><a href="#cb27-19" tabindex="-1"></a><span class="do">## true data for each subject</span></span>
-<span id="cb27-20"><a href="#cb27-20" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>numSubjs) {</span>
-<span id="cb27-21"><a href="#cb27-21" tabindex="-1"></a>  tmpID <span class="ot">=</span> subjList[i]</span>
-<span id="cb27-22"><a href="#cb27-22" tabindex="-1"></a>  tmpData <span class="ot">=</span> <span class="fu">subset</span>(x<span class="sc">$</span>rawdata, subjID <span class="sc">==</span> tmpID)</span>
-<span id="cb27-23"><a href="#cb27-23" tabindex="-1"></a>  true_y[i, ] <span class="ot">=</span> tmpData<span class="sc">$</span>keyPressed  <span class="co"># only for data with a 'choice' column</span></span>
-<span id="cb27-24"><a href="#cb27-24" tabindex="-1"></a>}</span>
-<span id="cb27-25"><a href="#cb27-25" tabindex="-1"></a></span>
-<span id="cb27-26"><a href="#cb27-26" tabindex="-1"></a><span class="do">## Subject #1</span></span>
-<span id="cb27-27"><a href="#cb27-27" tabindex="-1"></a><span class="fu">plot</span>(true_y[<span class="dv">1</span>, ], <span class="at">type=</span><span class="st">"l"</span>, <span class="at">xlab=</span><span class="st">"Trial"</span>, <span class="at">ylab=</span><span class="st">"Choice (0 or 1)"</span>, <span class="at">yaxt=</span><span class="st">"n"</span>)</span>
-<span id="cb27-28"><a href="#cb27-28" tabindex="-1"></a><span class="fu">lines</span>(y_pred_mean[<span class="dv">1</span>,], <span class="at">col=</span><span class="st">"red"</span>, <span class="at">lty=</span><span class="dv">2</span>)</span>
-<span id="cb27-29"><a href="#cb27-29" tabindex="-1"></a><span class="fu">axis</span>(<span class="at">side=</span><span class="dv">2</span>, <span class="at">at =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>) )</span>
-<span id="cb27-30"><a href="#cb27-30" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">"bottomleft"</span>, <span class="at">legend=</span><span class="fu">c</span>(<span class="st">"True"</span>, <span class="st">"PPC"</span>), <span class="at">col=</span><span class="fu">c</span>(<span class="st">"black"</span>, <span class="st">"red"</span>), <span class="at">lty=</span><span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>)</span></code></pre></div>
-<p><img src="images/PPC.png"></p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="to-do-list">To-do list<a class="anchor" aria-label="anchor" href="#to-do-list"></a>
-</h2>
-<p>We are planning to add more tasks/models. We plan to include the
-following tasks and/or models in the near future. If you have any
-requests for a specific task or a model, please let us know.</p>
+<p>Boundaries of ω₃ values</p>
 <ul>
-<li>More sequential sampling models (e.g., drift diffusion models with
-different drift rates for multiple conditions).</li>
-<li>Models for the passive avoidance learning task <span class="citation">(Newman et al., 1985; Newman &amp; Kosson,
-1986)</span>.</li>
-<li>Models for the Stop Signal Task (SST)</li>
-<li>Allowing users to extract model-based regressors <span class="citation">(O’Doherty et al., 2007)</span> from more tasks.</li>
+<li>If ω₃ is too low, then exp(ω₃) becomes very small (e.g., ω₃ = -8,
+exp(ω₃) ≈ 0.000335), which means that level-3 updating has almost no
+influence on the agent’s behavior. Avoid setting the upper bound too
+low.</li>
+</ul>
+</li>
+<li>
+<p>Recovery performance when estimated with other parameters</p>
+<ul>
+<li>Evaluate how well ω₃ is recovered when estimated jointly with other
+parameters.</li>
+</ul>
+</li>
 </ul>
 </div>
-<div class="section level2">
-<h2 id="citation">Citation<a class="anchor" aria-label="anchor" href="#citation"></a>
-</h2>
-<p>If you used hBayesDM or some of its codes for your research, please
-cite <a href="https://www.mitpressjournals.org/doi/full/10.1162/CPSY_a_00002" class="external-link">this
-paper</a>:</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="va">@article</span>{<span class="ot">hBayesDM</span>,</span>
-<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a>  <span class="dt">title</span> = {Revealing Neurocomputational Mechanisms of Reinforcement Learning and Decision-Making With the {hBayesDM} Package},</span>
-<span id="cb28-3"><a href="#cb28-3" tabindex="-1"></a>  <span class="dt">author</span> = {Ahn, Woo-Young and Haines, Nathaniel and Zhang, Lei},</span>
-<span id="cb28-4"><a href="#cb28-4" tabindex="-1"></a>  <span class="dt">journal</span> = {Computational Psychiatry},</span>
-<span id="cb28-5"><a href="#cb28-5" tabindex="-1"></a>  <span class="dt">year</span> = {2017},</span>
-<span id="cb28-6"><a href="#cb28-6" tabindex="-1"></a>  <span class="dt">volume</span> = {1},</span>
-<span id="cb28-7"><a href="#cb28-7" tabindex="-1"></a>  <span class="dt">pages</span> = {24--57},</span>
-<span id="cb28-8"><a href="#cb28-8" tabindex="-1"></a>  <span class="dt">publisher</span> = {MIT Press},</span>
-<span id="cb28-9"><a href="#cb28-9" tabindex="-1"></a>  <span class="dt">url</span> = {doi:10.1162/CPSY_a_00002},</span>
-<span id="cb28-10"><a href="#cb28-10" tabindex="-1"></a>}</span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
-<h2 id="papers-citing-hbayesdm">Papers citing hBayesDM<a class="anchor" aria-label="anchor" href="#papers-citing-hbayesdm"></a>
+<h2 class="unnumbered" id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
-<p>Here is a selected list of papers that we know that used or cited
-hBayesDM (from Google Scholar). Let us know if you used hBayesDM for
-your papers!</p>
-<ul>
-<li><a href="https://scholar.google.co.kr/scholar?oi=bibs&amp;hl=en&amp;cites=14115085235970942065&amp;as_sdt=5" class="external-link">Papers
-citing hBayesDM (Google Scholar)</a></li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="suggested-reading">Suggested reading<a class="anchor" aria-label="anchor" href="#suggested-reading"></a>
-</h2>
-<p>You can refer to other helpful review papers or books <span class="citation">(Busemeyer &amp; Diederich, 2010; Daw, 2011; Lee, 2011;
-Lee &amp; Wagenmakers, 2014; Shiffrin et al., 2008)</span> to know more
-about HBA or computational modeling in general.</p>
-</div>
-<div class="section level2">
-<h2 id="other-useful-links">Other Useful Links<a class="anchor" aria-label="anchor" href="#other-useful-links"></a>
-</h2>
-<ol style="list-style-type: decimal">
-<li>“Modelling behavioural data” by Quentin Huys, available in <a href="https://www.quentinhuys.com/teaching.html" class="external-link uri">https://www.quentinhuys.com/teaching.html</a>.</li>
-<li>Introductory tutorial on reinforcement learning by Jill O’Reilly and
-Hanneke den Ouden, available in <a href="http://hannekedenouden.ruhosting.nl/RLtutorial/Instructions.html" class="external-link uri">http://hannekedenouden.ruhosting.nl/RLtutorial/Instructions.html</a>.</li>
-<li>VBA Toolbox: A flexible modeling (MATLAB) toolbox using Variational
-Bayes (<a href="http://mbb-team.github.io/VBA-toolbox/" class="external-link uri">http://mbb-team.github.io/VBA-toolbox/</a>).</li>
-<li>TAPAS: A collection of algorithms and software tools written in
-MATLAB. Developed by the Translational Neuromodeling Unit (TNU) at
-Zurich (<a href="http://www.translationalneuromodeling.org/tapas/" class="external-link uri">http://www.translationalneuromodeling.org/tapas/</a>).</li>
-<li>Bayesian analysis toolbox for delay discounting data, available in
-<a href="http://www.inferencelab.com/delay-discounting-analysis/" class="external-link uri">http://www.inferencelab.com/delay-discounting-analysis/</a>.</li>
-<li>rtdists: Response time distributions in R, available in <a href="https://github.com/rtdists/rtdists/" class="external-link uri">https://github.com/rtdists/rtdists/</a>.</li>
-<li>RWiener: Wiener process distribution functions, available in <a href="https://cran.r-project.org/web/packages/RWiener/index.html" class="external-link uri">https://cran.r-project.org/web/packages/RWiener/index.html</a>.</li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="acknowledgement">Acknowledgement<a class="anchor" aria-label="anchor" href="#acknowledgement"></a>
-</h2>
-<p>This work was supported in part by the National Institute on Drug
-Abuse (NIDA) under award number R01DA021421 (PI: Jasmin Vassileva).</p>
-</div>
-<div class="section level2">
-<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
-</h2>
-<!-- See here to learn how to cite references:
-http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html
-
-## for table of contents
-http://stackoverflow.com/questions/23957278/how-to-add-table-of-contents-in-rmarkdown
--->
 <div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0" line-spacing="2">
-<div id="ref-ahn2011model" class="csl-entry">
-Ahn, W.-Y., Krawitz, A., Kim, W., Busemeyer, J. R., &amp; Brown, J. W.
-(2011). A model-based fMRI analysis with hierarchical bayesian parameter
-estimation. <em>Journal of Neuroscience, Psychology, and Economics</em>,
-<em>4</em>(2), 95.
-</div>
-<div id="ref-ahn2014decision" class="csl-entry">
-Ahn, W.-Y., Vasilev, G., Lee, S.-H., Busemeyer, J. R., Kruschke, J. K.,
-Bechara, A., &amp; Vassileva, J. (2014). Decision-making in stimulant
-and opiate addicts in protracted abstinence: Evidence from computational
-modeling with pure users. <em>Frontiers in Psychology</em>, <em>5</em>,
-849.
-</div>
-<div id="ref-Busemeyer2010" class="csl-entry">
-Busemeyer, J. R., &amp; Diederich, A. (2010). <em><span class="nocase">Cognitive modeling</span></em>. Sage Publications, Inc.
-</div>
-<div id="ref-Busemeyer2000a" class="csl-entry">
-Busemeyer, J. R., &amp; Wang, Y.-M. (2000). Model comparisons and model
-selections based on generalization criterion methodology. <em>Journal of
-Mathematical Psychology</em>, <em>44</em>, 171–189.
-</div>
-<div id="ref-daw2011trial" class="csl-entry">
-Daw, N. D. (2011). Trial-by-trial data analysis using computational
-models. <em>Decision Making, Affect, and Learning: Attention and
-Performance XXIII</em>, <em>23</em>, 3–38.
-</div>
-<div id="ref-huys2011disentangling" class="csl-entry">
-Huys, Q. J. M., Cools, R., Gölzer, M., Friedel, E., Heinz, A., Dolan, R.
-J., &amp; Dayan, P. (2011). Disentangling the roles of approach,
-activation and valence in instrumental and pavlovian responding.
-<em>PLoS Computational Biology</em>, <em>7</em>(4), e1002028.
-</div>
-<div id="ref-kruschke2014doing" class="csl-entry">
-Kruschke, J. (2014). <em>Doing bayesian data analysis: A tutorial with
-<span>R</span>, <span>JAGS</span>, and <span>S</span>tan</em>. Academic
-Press.
-</div>
-<div id="ref-Lee2011hba" class="csl-entry">
-Lee, M. D. (2011). How cognitive modeling can benefit from hierarchical
-bayesian models. <em>Journal of Mathematical Psychology</em>,
-<em>55</em>(1), 1–7.
-</div>
-<div id="ref-lee2014bayesian" class="csl-entry">
-Lee, M. D., &amp; Wagenmakers, E.-J. (2014). <em>Bayesian cognitive
-modeling: A practical course</em>. Cambridge University Press.
+<div id="ref-hein2021state" class="csl-entry">
+Hein, T. P., Fockert, J. de, &amp; Herrojo Ruiz, M. (2021). State
+anxiety biases estimates of uncertainty and impairs reward learning in
+volatile environments. <em>NeuroImage</em>, <em>224</em>, 117424.
+http://doi.org/<a href="https://doi.org/10.1016/j.neuroimage.2020.117424" class="external-link">10.1016/j.neuroimage.2020.117424</a>
 </div>
 <div id="ref-mathys2011bayesian" class="csl-entry">
 Mathys, C., Daunizeau, J., Friston, K. J., &amp; Stephan, K. E. (2011).
 A bayesian foundation for individual learning under uncertainty.
 <em>Frontiers in Human Neuroscience</em>, <em>5</em>, 39.
 </div>
-<div id="ref-newman1986passive" class="csl-entry">
-Newman, J. P., &amp; Kosson, D. S. (1986). Passive avoidance learning in
-psychopathic and nonpsychopathic offenders. <em>Journal of Abnormal
-Psychology</em>, <em>95</em>(3), 252.
+<div id="ref-mathys2014hgf" class="csl-entry">
+Mathys, C., Lomakina, E. I., Daunizeau, J., Iglesias, S., Brodersen, K.
+H., Friston, K. J., &amp; Stephan, K. E. (2014). Uncertainty in
+perception and the hierarchical gaussian filter. <em>Frontiers in Human
+Neuroscience</em>, <em>8</em>, 825.
 </div>
-<div id="ref-Newman1985" class="csl-entry">
-Newman, J. P., Widom, C. S., &amp; Nathan, S. (1985). Passive avoidance
-in syndromes of disinhibition, psychopathy, and extraversion.
-<em>Journal of Personality and Individual Differences</em>, <em>48</em>,
-1316–1327.
+<div id="ref-reed2020paranoia" class="csl-entry">
+Reed, E. J., Uddenberg, S., Suthaharan, P., Mathys, C. D., Taylor, J.
+R., Groman, S. M., &amp; Corlett, P. R. (2020). Paranoia as a deficit in
+non-social belief updating. <em>Elife</em>, <em>9</em>.
+http://doi.org/<a href="https://doi.org/10.7554/eLife.56345" class="external-link">10.7554/eLife.56345</a>
 </div>
-<div id="ref-o2007model" class="csl-entry">
-O’Doherty, J. P., Hampton, A., &amp; Kim, H. (2007). Model-based fMRI
-and its application to reward learning and decision making. <em>Annals
-of the New York Academy of Sciences</em>, <em>1104</em>(1), 35–53.
-</div>
-<div id="ref-Shiffrin2008" class="csl-entry">
-Shiffrin, R. M., Lee, M. D., Kim, W., &amp; Wagenmakers, E. J. (2008).
-<span class="nocase">A survey of model evaluation approaches with a
-tutorial on hierarchical Bayesian methods</span>. <em>Cognitive Science:
-A Multidisciplinary Journal</em>, <em>32</em>(8), 1248–1284.
-</div>
-<div id="ref-steingroever2014absolute" class="csl-entry">
-Steingroever, H., Wetzels, R., &amp; Wagenmakers, E.-J. (2014). Absolute
-performance of reinforcement-learning models for the iowa gambling task.
-<em>Decision</em>, <em>1</em>(3), 161.
-</div>
-<div id="ref-vehtari2015e" class="csl-entry">
-Vehtari, A., Gelman, A., &amp; Gabry, J. (2015). Efficient
-implementation of leave-one-out cross-validation and <span>WAIC</span>
-for evaluating fitted <span>B</span>ayesian models. <em>arXiv Preprint
-arXiv:1507.04544</em>.
+<div id="ref-tecilla2023modulation" class="csl-entry">
+Tecilla, M., Großbach, M., Gentile, G., Holland, P., Sporn, S.,
+Antonini, A., &amp; Herrojo Ruiz, M. (2023). Modulation of motor vigor
+by expectation of reward probability trial-by-trial is preserved in
+healthy ageing and parkinson’s disease patients. <em>Journal of
+Neuroscience</em>, <em>43</em>(10), 1757–1777. http://doi.org/<a href="https://doi.org/10.1523/JNEUROSCI.1583-22.2022" class="external-link">10.1523/JNEUROSCI.1583-22.2022</a>
 </div>
 </div>
 </div>
